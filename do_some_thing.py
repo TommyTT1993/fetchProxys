@@ -1,24 +1,35 @@
+# coding=utf-8
 import requests
 import redis
 import sys
 import random
 import re
+from requests.packages.urllib3.exceptions import InsecureRequestWarning
+requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
 
 headers = {
     "User-Agent": "User-Agent:Mozilla/5.0(Macintosh;IntelMacOSX10_7_0)AppleWebKit/535.11(KHTML,likeGecko)Chrome/17.0.963.56Safari/535.11"}
 TOTAL_PROXY = 100
 
 def do_some_thing(iplist):
-    for ip in iplist:
+    for p_ip in iplist:
         proxy = {}
-        proxy[ip.split('://')[0]] = ip.split('://')[1]
-        if ip.split('://')[0] == "https":
-            print("proxy ip is " + ip.split('://')[1])
-            try:
-                r = requests.get("https://www.baidu.com/s?wd=ip", proxies=proxy, headers=headers)
+        proto = p_ip.split('://')[0]
+        ip = p_ip.split('://')[1]
+        proxy[proto] = ip
+        if proto == "https":
+            url = "https://www.baidu.com/s?wd=ip"
+        else:
+            url = "http://www.ipip.net"
+        try:
+            print("proxy ip is " + p_ip)
+            r = requests.get(url, proxies=proxy, headers=headers, timeout=10, verify=False)
+            if url.find('baidu') > -1:
                 print(re.search(r'我的ip地址\d+\.\d+\.\d+\.\d+', r.text).group())
-            except:
-                pass
+            else:
+                print(re.search(r'您当前的IP\S+(\d+\.\d+\.\d+\.\d+)', r.text).group())
+        except Exception as e:
+            print(e)
 
 
 if __name__ == '__main__':
@@ -26,8 +37,7 @@ if __name__ == '__main__':
     if sys.argv[-1] == "redis":
         rec = redis.Redis(host='127.0.0.1', db=1, decode_responses=True)
         # order by latency
-        iplist = map(lambda e:e.split('#'), rec.zrevrange("proxy", 0, TOTAL_PROXY))
-        iplist = list(map(lambda e:e[0], sorted(iplist, key=lambda e: e[1])))
+        iplist = rec.zrevrange("proxy_https", 0, TOTAL_PROXY)
     else:
         iplist = open("record.txt", "r").read().split('\n')
     do_some_thing(iplist)
