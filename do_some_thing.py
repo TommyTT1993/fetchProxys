@@ -33,11 +33,6 @@ def do_some_thing(iplist):
 
 
 if __name__ == '__main__':
-    iplist = []
-    if sys.argv[-1] == "redis":
-        rec = redis.Redis(host='127.0.0.1', db=1, decode_responses=True)
-        # order by latency
-        iplist = rec.zrevrange("proxy_https", 0, TOTAL_PROXY)
-    else:
-        iplist = open("record.txt", "r").read().split('\n')
+    rec = redis.Redis(host='127.0.0.1', db=1, decode_responses=True)
+    iplist = rec.zrevrange("proxy_https", 0, TOTAL_PROXY)
     do_some_thing(iplist)
