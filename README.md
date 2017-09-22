@@ -1,19 +1,17 @@
 ## fetchProxys
 
   爬取www.xicidaili.com的代理服务器列表存入redis，并定时检测代理服务器的可用性
-ip存在SortedSet里，score是当前时间戳
+ip存在SortedSet里，score是当前时间戳.
+
+  访问次数太多会被封，可以用爬来的代理访问
 
 ### start
   
 ```python3 fetch.py redis // 抓取proxy-list保存到redis```
 
-```python3 fetch.py // 也可以直接保存到文件```
-
 ### result
 
 ```python3 do_some_thing.py redis // 从redis里获取proxy-list看看效果```
-
-```python3 do_some_thing.py // 从文件中获取```
 
     proxy ip is https://122.72.32.82:80
     我的ip地址122.72.32.82

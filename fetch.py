@@ -7,10 +7,11 @@ import redis
 import time
 requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
 import gevent
+import random
 from gevent import pool
 from gevent import monkey; monkey.patch_socket()
 
-red = None
+red = redis.Redis(host='127.0.0.1', db=1, decode_responses=True)
 
 urls = [
     "http://www.xicidaili.com/nn/{}",
@@ -44,7 +45,11 @@ def go():
 def save_proxy_from_url(url):
     print(url)
     g = pool.Pool(5)
-    r = fetch(url, {"headers": headers})
+    opt = {"headers": headers}
+    proxy = get_random_ip("http")
+    if proxy:
+        opt["proxies"] = proxy
+    r = fetch(url, opt)
     for m in ip_partten.finditer(r.text):
         match = re.search(r'\d+', r.text[m.end():m.end() + 20])
         if match:
@@ -63,22 +68,16 @@ def save_proxy(proto, ip, port):
     else:
         r = fetch('http://www.ipip.net', opt)
     if r and r.status_code == 200:
-        if red:
-            red.zadd("proxy_" + proto, "{}://{}:{}".format(proto, ip, port), int(time.time()))
-        else:
-            with open("record.txt", "a") as f:
-                f.write("{}://{}:{}\n".format(proto, ip, port))
+        red.zadd("proxy_" + proto, "{}://{}:{}".format(proto, ip, port), int(time.time()))
     else:
-        if red:
-            red.zrem("proxy_" + proto, "{}://{}:{}".format(proto, ip, port))
+        red.zrem("proxy_" + proto, "{}://{}:{}".format(proto, ip, port))
 
 
 def check_alive():
-    r = redis.Redis(host='127.0.0.1', db=1, decode_responses=True)
     g = pool.Pool(3)
     while True:
-        list = r.zrange("proxy_http", 0, -1)
-        list.extend(r.zrange("proxy_https", 0, -1))
+        list = red.zrange("proxy_http", 0, -1)
+        list.extend(red.zrange("proxy_https", 0, -1))
         print('total proxy ips = ' + str(len(list)))
         for l in list:
             proto = l.split('://')[0]
@@ -90,8 +89,17 @@ def check_alive():
         gevent.sleep(60)
 
 
+def get_random_ip(proto):
+    l = red.zcard("proxy_" + proto)
+    if l > 0:
+        p = random.randint(0, l - 1)
+        host = red.zrange("proxy_" + proto, p, p)
+        host = host[0]
+        o = {}
+        o[host.split('://')[0]] = host.split('://')[1]
+        return o
+
+
 if __name__ == '__main__':
-    if len(sys.argv) > 1 and sys.argv[1] == "redis":
-        gevent.spawn(check_alive)
-        red = redis.Redis(host='127.0.0.1', db=1)
+    gevent.spawn(check_alive)
     go()
